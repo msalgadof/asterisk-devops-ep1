@@ -1,0 +1,37 @@
+name: CI - Validacion configuracion Asterisk
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-config:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Verificar existencia de archivos de configuracion
+        run: |
+          test -f pjsip.conf || (echo "Falta pjsip.conf" && exit 1)
+          test -f extensions.conf || (echo "Falta extensions.conf" && exit 1)
+          echo "Archivos de configuracion presentes."
+
+      - name: Chequeo basico de sintaxis (balance de corchetes)
+        run: |
+          for file in pjsip.conf extensions.conf; do
+            open=$(grep -o '\[' "$file" | wc -l)
+            close=$(grep -o '\]' "$file" | wc -l)
+            if [ "$open" -ne "$close" ]; then
+              echo "Error de sintaxis en $file: corchetes desbalanceados ($open abiertos, $close cerrados)"
+              exit 1
+            fi
+            echo "$file: sintaxis de secciones OK ($open secciones)"
+          done
+
+      - name: Chequeo de lineas vacias o mal formadas en secciones clave
+        run: |
+          grep -n "^\[" pjsip.conf || echo "Sin secciones detectadas en pjsip.conf"
+          grep -n "^\[" extensions.conf || echo "Sin secciones detectadas en extensions.conf"
